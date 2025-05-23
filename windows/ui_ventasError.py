@@ -18,6 +18,7 @@ class Ui_MainWindow(object):
             MainWindow.setObjectName(u"MainWindow")
         MainWindow.setEnabled(True)
         MainWindow.resize(482, 318)
+        self.mainWindow = MainWindow
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.label_3 = QLabel(self.centralwidget)
@@ -32,6 +33,7 @@ class Ui_MainWindow(object):
         self.pushButton_6.setObjectName(u"pushButton_6")
         self.pushButton_6.setGeometry(QRect(90, 190, 301, 81))
         self.pushButton_6.setFont(font)
+        self.pushButton_6.clicked.connect(self.close)
         self.label_2 = QLabel(self.centralwidget)
         self.label_2.setObjectName(u"label_2")
         self.label_2.setGeometry(QRect(30, 10, 421, 151))
@@ -54,6 +56,12 @@ class Ui_MainWindow(object):
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"No se ha encontrado el\n"
 "producto buscado", None))
     # retranslateUi
+    
+    def close(self):
+        self.mainWindow.close()
+
+    def closeEvent(self,event):
+        event.accept()
 
 class ventasError(QMainWindow):
     def __init__(self):

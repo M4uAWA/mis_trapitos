@@ -1,0 +1,7 @@
+Fecha: 2025-05-23
+Venta:
+id_venta, fecha_venta, total, metodo_de_pago, id_cliente, id_empleado
+(15, datetime.date(2025, 5, 23), Decimal('62.37'), 'Efectivo', 2, 23)
+Articulos en detalle: 
+id_detalle, cantidad, precio_unitario, descuento_aplicado, id_venta, id_variacion
+(33, 3, Decimal('20.79'), Decimal('20.00'), 15, 2)

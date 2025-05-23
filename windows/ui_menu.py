@@ -23,6 +23,7 @@ class Ui_MainWindow(object):
             MainWindow.setObjectName(u"MainWindow")
         MainWindow.setEnabled(True)
         MainWindow.resize(1080, 720)
+        self.id = id
         self.mainWindow = MainWindow
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
@@ -91,7 +92,7 @@ class Ui_MainWindow(object):
         self.clientes = ui_clientes.clientes()
         self.clientes.show()
     def goToVenta(self):
-        self.venta = ui_venta.venta()
+        self.venta = ui_venta.venta(self.id)
         self.venta.show()
     def goToProveedores(self):
         self.proveedores = ui_proveedores.proveedores()

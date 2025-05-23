@@ -11,13 +11,18 @@
 from PySide6.QtCore import *  # type: ignore
 from PySide6.QtGui import *  # type: ignore
 from PySide6.QtWidgets import *  # type: ignore
+import db
+import ui_ventasError
+import ui_ventasBuscar
+from datetime import date
 
 class Ui_MainWindow(object):
-    def setupUi(self, MainWindow):
+    def setupUi(self, MainWindow, id):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
         MainWindow.setEnabled(True)
         MainWindow.resize(1080, 718)
+        self.mainWindow = MainWindow
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.pushButton_5 = QPushButton(self.centralwidget)
@@ -26,6 +31,7 @@ class Ui_MainWindow(object):
         font = QFont()
         font.setPointSize(16)
         self.pushButton_5.setFont(font)
+        self.pushButton_5.clicked.connect(self.search)
         self.lineEdit_2 = QLineEdit(self.centralwidget)
         self.lineEdit_2.setObjectName(u"lineEdit_2")
         self.lineEdit_2.setGeometry(QRect(20, 650, 391, 50))
@@ -59,7 +65,7 @@ class Ui_MainWindow(object):
         font3 = QFont()
         font3.setPointSize(14)
         self.tableWidget.setFont(font3)
-        self.tableWidget.horizontalHeader().setMinimumSectionSize(115)
+        self.tableWidget.horizontalHeader().setMinimumSectionSize(50)
         self.tableWidget.horizontalHeader().setDefaultSectionSize(115)
         self.radioButton = QRadioButton(self.centralwidget)
         self.radioButton.setObjectName(u"radioButton")
@@ -106,10 +112,12 @@ class Ui_MainWindow(object):
         self.radioButton_3.setObjectName(u"radioButton_3")
         self.radioButton_3.setGeometry(QRect(60, 30, 101, 41))
         self.radioButton_3.setFont(font3)
+        self.radioButton_3.toggled.connect(self.card)
         self.radioButton_4 = QRadioButton(self.frame)
         self.radioButton_4.setObjectName(u"radioButton_4")
         self.radioButton_4.setGeometry(QRect(260, 30, 111, 41))
         self.radioButton_4.setFont(font3)
+        self.radioButton_4.toggled.connect(self.cash)
         self.lineEdit_3 = QLineEdit(self.frame)
         self.lineEdit_3.setObjectName(u"lineEdit_3")
         self.lineEdit_3.setGeometry(QRect(190, 120, 221, 50))
@@ -147,12 +155,139 @@ class Ui_MainWindow(object):
         self.pushButton_6.setObjectName(u"pushButton_6")
         self.pushButton_6.setGeometry(QRect(620, 650, 431, 51))
         self.pushButton_6.setFont(font)
+        self.pushButton_6.clicked.connect(self.makeSale)
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
 
         QMetaObject.connectSlotsByName(MainWindow)
+
+        self.tableWidget.setColumnWidth(0,50)
+
+        self.id = id
+        self.saleMade = False
+        self.connection = db.connect()
+        self.cursor = self.connection.cursor()
+        self.cursor.execute(f"SELECT * FROM empleado WHERE id_empleado = {self.id};")
+        empleado = self.cursor.fetchone() 
+        self.label_6.setText(f"Empleado: {empleado[1]}")
+        self.cursor.execute(f"SELECT * FROM cliente;")
+        client = self.cursor.fetchall()
+        if len(client) > 0:
+            for i in range(len(client)):
+                self.comboBox.addItem(client[i][2])
+        self.radioButton_4.setChecked(True)
+        self.cash()
+        self.radioButton_2.setChecked(True)
+        self.cursor.execute(f"SELECT * FROM cliente WHERE nombre = \'{self.comboBox.currentText()}\'")
+        client_id = self.cursor.fetchone()[0]
+        self.cursor.execute(f"INSERT INTO venta (fecha_venta,total,metodo_de_pago,id_cliente,id_empleado) VALUES (\'{date.today()}\',NULL,NULL,{client_id},{self.id})")
+        self.comboBox.currentTextChanged.connect(self.updateClient)
+
+        self.setItems()
+
+        self.tableWidget.cellClicked.connect(self.handleCell)
+
     # setupUi
+        
+    def handleCell(self,row,column):
+        if column < 1:
+            self.cursor.execute("SELECT max(id_venta) FROM venta;")
+            sale_id = self.cursor.fetchone()[0]
+            self.cursor.execute(f"SELECT * FROM detalle_articulo WHERE id_venta = {sale_id};")
+            detailedProducts = self.cursor.fetchall()
+            if column == 0:
+                self.cursor.execute(f"DELETE FROM detalle_articulo WHERE id_detalle = {detailedProducts[row][0]}")
+        
+    def updateClient(self):
+        self.cursor.execute("SELECT max(id_venta) FROM venta;")
+        sale_id = self.cursor.fetchone()[0]
+        self.cursor.execute(f"SELECT * FROM cliente WHERE nombre = \'{self.comboBox.currentText()}\'")
+        client_id = self.cursor.fetchone()[0]
+        self.cursor.execute(f"UPDATE venta SET fecha_venta = \'{date.today()}\',total = NULL,metodo_de_pago = NULL,id_cliente = {client_id},id_empleado = {self.id} WHERE id_venta = {sale_id}")
+
+    def setItems(self):
+        self.cursor.execute("SELECT max(id_venta) FROM venta;")
+        sale_id = self.cursor.fetchone()[0]
+        self.cursor.execute(f"SELECT * FROM detalle_articulo WHERE id_venta = {sale_id};")
+        detailedProducts = self.cursor.fetchall()
+        self.tableWidget.setRowCount(len(detailedProducts))
+        if len(detailedProducts) > 0:
+            self.tableWidget.setColumnCount(5)
+            for i in range(len(detailedProducts)):
+
+                self.tableWidget.setItem(i,0,QTableWidgetItem("🗑️"))
+                self.tableWidget.setItem(i,1,QTableWidgetItem(str(detailedProducts[i][5])))#idVariacion
+                self.tableWidget.setItem(i,2,QTableWidgetItem(str(detailedProducts[i][1])))#cantidad
+                self.tableWidget.setItem(i,3,QTableWidgetItem(str(detailedProducts[i][2])))#P/U
+                self.tableWidget.setItem(i,4,QTableWidgetItem(str(detailedProducts[i][2] * detailedProducts[i][1])))#P/C
+
+        total = 0
+        for i in range(self.tableWidget.rowCount()):
+            total += float(self.tableWidget.item(i,4).text())
+        self.label_5.setText(f"TOTAL: {total}")
+
+        QTimer.singleShot(3000, self.setItems)
+
+    def card(self):
+        self.lineEdit_3.setEnabled(True)
+        self.lineEdit_4.setEnabled(True)
+        self.lineEdit_5.setEnabled(True)
+
+    def cash(self):
+        self.lineEdit_3.setEnabled(False)
+        self.lineEdit_4.setEnabled(False)
+        self.lineEdit_5.setEnabled(False)
+
+    def makeSale(self):
+        self.cursor.execute("SELECT max(id_venta) FROM venta;")
+        sale_id = self.cursor.fetchone()[0]
+        total = 0
+        for i in range(self.tableWidget.rowCount()):
+            total += float(self.tableWidget.item(i,4).text())
+        if self.radioButton_3.isChecked():
+            self.cursor.execute(f"UPDATE venta SET total = {total}, metodo_de_pago = \'Tarjeta\' WHERE id_venta = {sale_id};")
+        else:
+            self.cursor.execute(f"UPDATE venta SET total = {total}, metodo_de_pago = \'Efectivo\' WHERE id_venta = {sale_id};")
+
+        self.cursor.execute("SELECT max(id_venta) FROM venta;")
+        latestSale = self.cursor.fetchone()[0]
+        self.cursor.execute(f"SELECT * FROM venta WHERE id_venta = {latestSale};")
+        sale = self.cursor.fetchone()
+        self.cursor.execute(f"SELECT * FROM detalle_articulo WHERE id_venta = {latestSale};")
+        detailedProducts = self.cursor.fetchall()
+        with open("Reporte\\Ventas.txt", "a") as f:
+            f.write(f"\n\nFecha: {date.today()}")
+            f.write(f"\nVenta:")
+            f.write(f"\nid_venta, fecha_venta, total, metodo_de_pago, id_cliente, id_empleado")
+            f.write(f"\n{sale}")
+            f.write(f"\nArticulos en detalle: ")
+            f.write(f"\nid_detalle, cantidad, precio_unitario, descuento_aplicado, id_venta, id_variacion")
+            for i in range(len(detailedProducts)):
+                f.write(f"\n{detailedProducts[i]}")
+
+        self.mainWindow.close()
+
+    def closeEvent(self,event):      
+        self.connection.close()
+        self.cursor.close()
+        event.accept()
+
+    def search(self):
+        if self.lineEdit_2.text() == "":
+            pass
+        else:
+            if self.radioButton.isChecked():
+                self.cursor.execute(f"SELECT * FROM producto WHERE id_producto = {self.lineEdit_2.text()} ")
+            else:
+                self.cursor.execute(f"SELECT * FROM producto WHERE nombre LIKE \'%{self.lineEdit_2.text()}%\' ")
+            result = self.cursor.fetchall()
+            if len(result) > 0:
+                self.ventanaBuscar = ui_ventasBuscar.ventasBuscar(result)
+                self.ventanaBuscar.show()
+            else:
+                self.ventasError = ui_ventasError.ventasError()
+                self.ventasError.show()        
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"MainWindow", None))
@@ -185,8 +320,10 @@ class Ui_MainWindow(object):
         self.pushButton_6.setText(QCoreApplication.translate("MainWindow", u"Registrar venta", None))
     # retranslateUi
 
+
+
 class venta(QMainWindow):
-    def __init__(self):
+    def __init__(self, id):
         super().__init__()
         self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
+        self.ui.setupUi(self, id)
